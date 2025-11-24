@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Material Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Product+Sans:wght@400;500&display=swap');
+
+        body {
+            font-family: 'Product Sans', sans-serif;
+            background-color: #F6F9FC;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Custom Colors based on the screenshot */
+        .btn-blue { background-color: #D3E3FD; color: #101010; }
+        .btn-grey { background-color: #F1F3F4; color: #1F1F1F; }
+        .btn-purple { background-color: #645D82; color: #FFFFFF; } /* Muted Purple */
+        
+        .btn-ac { color: #004A77; } /* Darker blue text for AC often seen in this UI */
+
+        .calc-btn {
+            border-radius: 9999px; /* Circle */
+            transition: transform 0.1s ease, filter 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.75rem;
+            user-select: none;
+        }
+
+        .calc-btn:active {
+            transform: scale(0.95);
+            filter: brightness(0.95);
+        }
+
+        /* Blinking Cursor */
+        .cursor-blink {
+            animation: blink-animation 1s steps(2, start) infinite;
+        }
+        @keyframes blink-animation {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Hide Scrollbar */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="h-screen w-full flex flex-col bg-[#F6F9FC]">
+
+    <!-- Header -->
+    <div class="flex justify-between items-center p-4 px-6 text-[#444746]">
+        <button class="p-2 -ml-2 rounded-full hover:bg-black/5 transition-colors">
+            <i data-lucide="history" class="w-6 h-6"></i>
+        </button>
+        <button class="p-2 -mr-2 rounded-full hover:bg-black/5 transition-colors">
+            <i data-lucide="more-vertical" class="w-6 h-6"></i>
+        </button>
+    </div>
+
+    <!-- Display Section -->
+    <div class="flex-1 flex flex-col justify-end px-6 pb-2 relative">
+        <!-- Main Calculation Display -->
+        <div class="w-full overflow-x-auto no-scrollbar flex justify-end mb-1">
+            <div id="display-container" class="text-6xl text-[#1F1F1F] whitespace-nowrap font-normal tracking-tight flex items-center">
+                <span id="display-text"></span><span class="w-0.5 h-12 bg-[#3b82f6] cursor-blink ml-1" id="cursor"></span>
+            </div>
+        </div>
+        
+        <!-- Live Result Preview -->
+        <div class="w-full text-right h-8 mb-2">
+            <span id="preview-text" class="text-xl text-[#747775] font-medium opacity-0 transition-opacity duration-200"></span>
+        </div>
+    </div>
+
+    <!-- Toolbar / Separator Area -->
+    <div class="px-4 py-2 flex justify-between items-center">
+        <button class="p-2 hover:bg-black/5 rounded-full transition-colors text-[#444746]">
+            <!-- The specific double arrow icon often seen -->
+            <i data-lucide="chevrons-up-down" class="w-5 h-5"></i>
+        </button>
+        <button class="p-2 hover:bg-black/5 rounded-full transition-colors text-[#ABEFCD] opacity-0 pointer-events-none">
+            <i data-lucide="delete" class="w-6 h-6"></i> 
+        </button>
+    </div>
+
+    <!-- Keypad Grid -->
+    <div class="pb-6 px-4">
+        <div class="grid grid-cols-4 gap-3 md:gap-4 max-w-lg mx-auto">
+            
+            <!-- Row 1: Light Blue Group -->
+            <button class="calc-btn btn-blue h-20 w-20 sm:h-22 sm:w-22 text-[1.6rem] font-medium btn-ac" onclick="handleClear()">AC</button>
+            <button class="calc-btn btn-blue h-20 w-20 sm:h-22 sm:w-22" onclick="handleBrackets()">( )</button>
+            <button class="calc-btn btn-blue h-20 w-20 sm:h-22 sm:w-22" onclick="handleInput('%')">%</button>
+            <button class="calc-btn btn-blue h-20 w-20 sm:h-22 sm:w-22 text-3xl" onclick="handleInput('/')">÷</button>
+
+            <!-- Row 2 -->
+            <button class="calc-btn btn-grey h-20 w-20 sm:h-22 sm:w-22" onclick="handleInput('7')">7</button>
+            <button class="calc-btn btn-grey h-20 w-20 sm:h-22 sm:w-22" onclick="handleInput('8')">8</button>
+            <button class="calc-btn btn-grey h-20 w-20 sm:h-22 sm:w-22" onclick="handleInput('9')">9</button>
+            <button class="calc-btn btn-blue h-20 w-20 sm:h-22 sm:w-22 text-3xl" onclick="handleInput('*')">×</button>
+
+            <!-- Row 3 -->
+            <button class="calc-btn btn-grey h-20 w-20 sm:h-22 sm:w-22" onclick="handleInput('4')">4</button>
+            <button class="calc-btn btn-grey h-20 w-20 sm:h-22 sm:w-22" onclick="handleInput('5')">5</button>
+            <button class="calc-btn btn-grey h-20 w-20 sm:h-22 sm:w-22" onclick="handleInput('6')">6</button>
+            <button class="calc-btn btn-blue h-20 w-20 sm:h-22 sm:w-22 text-3xl" onclick="handleInput('-')">−</button>
+
+            <!-- Row 4 -->
+            <button class="calc-btn btn-grey h-20 w-20 sm:h-22 sm:w-22" onclick="handleInput('1')">1</button>
+            <button class="calc-btn btn-grey h-20 w-20 sm:h-22 sm:w-22" onclick="handleInput('2')">2</button>
+            <button class="calc-btn btn-grey h-20 w-20 sm:h-22 sm:w-22" onclick="handleInput('3')">3</button>
+            <button class="calc-btn btn-blue h-20 w-20 sm:h-22 sm:w-22 text-3xl" onclick="handleInput('+')">+</button>
+
+            <!-- Row 5 -->
+            <button class="calc-btn btn-grey h-20 w-20 sm:h-22 sm:w-22" onclick="handleInput('0')">0</button>
+            <button class="calc-btn btn-grey h-20 w-20 sm:h-22 sm:w-22 font-bold pb-2" onclick="handleInput('.')">.</button>
+            <button class="calc-btn btn-grey h-20 w-20 sm:h-22 sm:w-22" onclick="handleDelete()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-80"><path d="M20 5H9l-7 7 7 7h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>
+            </button>
+            <button class="calc-btn btn-purple h-20 w-20 sm:h-22 sm:w-22 text-3xl shadow-lg shadow-purple-900/10" onclick="handleEqual()">=</button>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        let inputSequence = "";
+        let displayedResult = false;
+        
+        const displayText = document.getElementById('display-text');
+        const previewText = document.getElementById('preview-text');
+        const displayContainer = document.getElementById('display-container');
+
+        // Initial state
+        updateUI();
+
+        function handleInput(char) {
+            // Reset if we just finished a calculation and are typing a new number
+            if (displayedResult) {
+                if (!isNaN(char) || char === '.') {
+                    inputSequence = "";
+                }
+                displayedResult = false;
+            }
+
+            // Prevent multiple decimals in a single number segment
+            if (char === '.') {
+                const parts = inputSequence.split(/[\+\-\*\/\%\(\)]/);
+                const currentNum = parts[parts.length - 1];
+                if (currentNum.includes('.')) return;
+            }
+
+            inputSequence += char;
+            updateUI();
+        }
+
+        function handleBrackets() {
+            if (displayedResult) {
+                inputSequence = "";
+                displayedResult = false;
+            }
+
+            const openCount = (inputSequence.match(/\(/g) || []).length;
+            const closeCount = (inputSequence.match(/\)/g) || []).length;
+            const lastChar = inputSequence.slice(-1);
+
+            // Smart logic: 
+            // If last char is a number or closing paren, implies multiplication -> add * then ( ?? 
+            // Or just close it if we have open ones?
+            // Standard calc behavior: 
+            // If we have open brackets > closed brackets AND last char is a number or ')', we probably want ')'
+            // Otherwise '('
+
+            if (openCount > closeCount && (/[0-9\)]/.test(lastChar))) {
+                inputSequence += ")";
+            } else {
+                // If last char is number, implicitly add multiply before open bracket?
+                // Standard UI calcs often don't do this automatically to avoid confusion, 
+                // but let's just add '('
+                if (/[0-9\)]/.test(lastChar)) {
+                   inputSequence += "*("; 
+                } else {
+                   inputSequence += "(";
+                }
+            }
+            updateUI();
+        }
+
+        function handleDelete() {
+            if (displayedResult) {
+                inputSequence = "";
+                displayedResult = false;
+                updateUI();
+                return;
+            }
+            if (inputSequence.length > 0) {
+                inputSequence = inputSequence.slice(0, -1);
+                updateUI();
+            }
+        }
+
+        function handleClear() {
+            inputSequence = "";
+            displayedResult = false;
+            updateUI();
+        }
+
+        function handleEqual() {
+            if (!inputSequence) return;
+            
+            try {
+                // Formatting for evaluation
+                let evalString = inputSequence
+                    .replace(/×/g, '*')
+                    .replace(/÷/g, '/');
+                
+                // Handle percentages: 50% -> 50/100
+                // Regex to find number before % and wrap in division
+                // Simple approach: replace % with /100
+                evalString = evalString.replace(/%/g, '/100');
+
+                const result = Function('"use strict";return (' + evalString + ')')();
+                
+                if (!isFinite(result) || isNaN(result)) {
+                    displayText.innerText = "Error";
+                    inputSequence = "";
+                    previewText.style.opacity = '0';
+                    return;
+                }
+
+                inputSequence = result.toString();
+                displayedResult = true;
+                
+                // Clear preview, move result to main
+                previewText.style.opacity = '0';
+                renderMainDisplay(inputSequence);
+
+                // Small animation to indicate result
+                displayText.style.transform = "scale(1.05)";
+                setTimeout(() => displayText.style.transform = "scale(1)", 150);
+
+            } catch (e) {
+                // Do nothing or show error
+                displayText.innerText = "Bad Expression";
+                setTimeout(() => updateUI(), 1000);
+            }
+        }
+
+        function updateUI() {
+            if (inputSequence === "") {
+                displayText.innerText = "0"; // Placeholder
+                displayText.classList.add("text-gray-400"); // Placeholder style
+                previewText.style.opacity = '0';
+                return;
+            }
+            
+            displayText.classList.remove("text-gray-400");
+            renderMainDisplay(inputSequence);
+            calculatePreview();
+        }
+
+        function renderMainDisplay(str) {
+            // Visual formatting: * -> ×, / -> ÷
+            let visual = str
+                .replace(/\*/g, '×')
+                .replace(/\//g, '÷');
+            
+            displayText.innerText = visual;
+            
+            // Auto scaling
+            if (visual.length > 10) {
+                displayContainer.classList.remove('text-6xl');
+                displayContainer.classList.add('text-4xl');
+            } else {
+                displayContainer.classList.add('text-6xl');
+                displayContainer.classList.remove('text-4xl');
+            }
+        }
+
+        function calculatePreview() {
+            if (displayedResult || inputSequence === "") {
+                previewText.style.opacity = '0';
+                return;
+            }
+
+            // Don't calc if ending in operator
+            if (/[+\-\*\/(\.]/.test(inputSequence.slice(-1))) {
+                 return; 
+            }
+
+            try {
+                let evalString = inputSequence.replace(/%/g, '/100');
+                const result = Function('"use strict";return (' + evalString + ')')();
+                
+                if (isFinite(result) && !isNaN(result)) {
+                    // Don't show preview if it's the same as input (e.g. just typing "5")
+                    if (result.toString() !== inputSequence) {
+                        previewText.innerText = result;
+                        previewText.style.opacity = '1';
+                    } else {
+                         previewText.style.opacity = '0';
+                    }
+                }
+            } catch (e) {
+                previewText.style.opacity = '0';
+            }
+        }
+
+        // Keyboard Support
+        document.addEventListener('keydown', (e) => {
+            const key = e.key;
+            if (!isNaN(key)) handleInput(key);
+            if (key === '.') handleInput('.');
+            if (key === '+') handleInput('+');
+            if (key === '-') handleInput('-');
+            if (key === '*') handleInput('*');
+            if (key === '/') { e.preventDefault(); handleInput('/'); }
+            if (key === '%') handleInput('%');
+            if (key === '(' || key === ')') handleBrackets(); // Simplify to smart brackets for keyboard too
+            if (key === 'Enter' || key === '=') handleEqual();
+            if (key === 'Backspace') handleDelete();
+            if (key === 'Escape') handleClear();
+        });
+
+    </script>
+</body>
+</html>
+
+
