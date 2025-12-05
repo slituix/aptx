@@ -1,69 +1,81 @@
-name: Build LLVM/Clang + libc++ for Android
+name: Build LLVM for Android 16
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
-  build-android:
-    runs-on: ubuntu-22.04
-
-    env:
-      ANDROID_API: 35
-      ANDROID_ABIS: arm64-v8a  
-      NDK_VERSION: r29
-      LLVM_TAG: llvmorg-21.1.7
-
+  build-llvm:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        abi: [arm64-v8a, armeabi-v7a, x86_64]
+    
     steps:
-      - name: Checkout LLVM source
+      - name: Checkout LLVM
         uses: actions/checkout@v6
         with:
           repository: llvm/llvm-project
-          ref: ${{ env.LLVM_TAG }}
-
+          ref: llvmorg-21.1.7
+          path: llvm-project
+          submodules: true
+      
+      - name: Set up dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build ccache python3
+          echo "/usr/lib/ccache" >> $GITHUB_PATH
+      
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
         with:
-          ndk-version: ${{ env.NDK_VERSION }}
-        id: ndk
-
-      - name: Install build dependencies
+          ndk-version: r29
+          add-to-path: true
+        
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2.20
+        with:
+          key: llvm-android-${{ matrix.abi }}
+          max-size: 2G
+      
+      - name: Configure LLVM
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build cmake python3 build-essential
-
-      - name: Configure & build per ABI
+          cmake -G Ninja \
+            -S llvm-project/llvm \
+            -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DLLVM_ENABLE_PROJECTS="clang;lld;compiler-rt" \
+            -DLLVM_TARGETS_TO_BUILD="AArch64;ARM;X86" \
+            -DLLVM_ENABLE_LTO=Thin \
+            -DLLVM_ENABLE_ASSERTIONS=OFF \
+            -DLLVM_INCLUDE_TESTS=OFF \
+            -DLLVM_INCLUDE_EXAMPLES=OFF \
+            -DLLVM_ENABLE_LIBCXX=ON \
+            -DCMAKE_INSTALL_PREFIX="${PWD}/install" \
+            -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=${{ matrix.abi }} \
+            -DANDROID_PLATFORM=android-36 \
+            -DANDROID_STL=c++_shared
+      
+      - name: Build LLVM
         run: |
-          for ABI in ${{ env.ANDROID_ABIS }}; do
-            BUILD_DIR=build-$ABI
-            INSTALL_DIR=install-$ABI
-            mkdir $BUILD_DIR
-            cd $BUILD_DIR
-            cmake ../llvm \
-              -G Ninja \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DLLVM_ENABLE_PROJECTS="clang;lld;libcxx;libcxxabi" \
-              -DLLVM_TARGETS_TO_BUILD="AArch64" \
-              -DLLVM_ENABLE_LTO=Thin \
-              -DLLVM_ENABLE_ASSERTIONS=OFF \
-              -DCMAKE_TOOLCHAIN_FILE=${{ steps.ndk.outputs.ndk-path }}/build/cmake/android.toolchain.cmake \
-              -DANDROID_ABI=$ABI \
-              -DANDROID_PLATFORM=android-${{ env.ANDROID_API }} \
-              -DANDROID_STL=c++_static \
-              -DCMAKE_INSTALL_PREFIX=$PWD/../${INSTALL_DIR} \
-              -DCMAKE_C_FLAGS="-Ofast -fstrict-aliasing -fomit-frame-pointer -mcpu=cortex-a78" \
-              -DCMAKE_CXX_FLAGS="-Ofast -fstrict-aliasing -fomit-frame-pointer -mcpu=cortex-a78" \
-              -DLIBCXX_ENABLE_SHARED=OFF \
-              -DLIBCXX_ENABLE_STATIC=ON
-            ninja clang lld cxx
-            ninja install
-            cd ..
-          done
-
-      - name: Upload artifacts
+          cmake --build build --parallel $(nproc)
+      
+      - name: Install LLVM
+        run: |
+          cmake --install build
+      
+      - name: Package toolchain
+        run: |
+          cd install
+          tar -czf ../llvm-clang-android36-${{ matrix.abi }}.tar.gz .
+      
+      - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
-          name: llvm-android-toolchain
-          path: |
-            install-arm64-v8a
+          name: llvm-clang-android36-${{ matrix.abi }}
+          path: llvm-clang-android36-${{ matrix.abi }}.tar.gz
+          retention-days: 30
